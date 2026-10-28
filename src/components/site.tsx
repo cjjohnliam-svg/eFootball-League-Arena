@@ -3,6 +3,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PublicGroup } from "@/lib/tournament";
 
@@ -45,7 +46,7 @@ export function SiteHeader() {
           </span>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV.map((n) => (
+          {NAV.filter((n) => n.to !== "/register").map((n) => (
             <Link
               key={n.to}
               to={n.to}
@@ -66,14 +67,22 @@ export function SiteHeader() {
               Log out
             </button>
           )}
+          <Button asChild variant="hero" size="sm" className="ml-3 h-9 px-4 text-sm">
+            <Link to="/register">Register for tournament</Link>
+          </Button>
         </nav>
-        <button
-          className="grid h-10 w-10 place-items-center rounded-md border border-border md:hidden"
-          aria-label={open ? "Close menu" : "Open menu"}
-          onClick={() => setOpen((o) => !o)}
-        >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <Button asChild variant="hero" size="sm" className="h-9 px-3 text-sm">
+            <Link to="/register" onClick={() => setOpen(false)}>Register</Link>
+          </Button>
+          <button
+            className="grid h-10 w-10 place-items-center rounded-md border border-border"
+            aria-label={open ? "Close menu" : "Open menu"}
+            onClick={() => setOpen((o) => !o)}
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
       {open && (
         <nav className="border-t border-border bg-background px-4 pb-4 md:hidden">

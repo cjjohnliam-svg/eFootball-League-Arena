@@ -89,7 +89,7 @@ function RulesPage() {
 
         <S n={7} title="Prizes">
           <ul>
-            <li>The prize pool is a fixed percentage of verified entry fees and is shown on the site. It is split between the top three as shown there.</li>
+            <li>The prize pool is a fixed percentage of verified entry fees and is shown on the site. It is split between the top three as shown there. The rest of the entry fees goes to web and app maintenance.</li>
             <li>When every match is finished the organiser ends the season, which freezes the final table and prizes. Winners are paid by M-Pesa to the phone number they registered with within <b>7 days</b> of that. Make sure it is correct.</li>
             <li>The organiser may withhold a prize if cheating or fraud is found.</li>
           </ul>

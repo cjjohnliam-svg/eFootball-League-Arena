@@ -138,6 +138,7 @@ function Prizes({ prize, final, completed }: { prize: Prize & { winners?: Winner
         <p className="max-w-sm text-xs text-muted-foreground">
           {prize.prize_percent}% of verified entry fees, split across the overall top three. Grows as players are verified.
           {completed ? " This season has ended and the prizes are final." : final ? " Final standings decide the winners." : " Standings are provisional until every match is played."}
+          {prize.prize_percent < 100 && <span className="mt-2 block">The other {100 - prize.prize_percent}% goes to web and app maintenance, which keeps this site running.</span>}
         </p>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">

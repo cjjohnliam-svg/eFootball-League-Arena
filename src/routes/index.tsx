@@ -5,6 +5,7 @@ import heroImg from "@/assets/stadium-night.jpg";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GroupCard, StatusBadge } from "@/components/site";
+import { HomeLeague } from "@/components/home-league";
 import { displayGroups, formatKes, isFull, publicTournamentQuery, useLiveTournament } from "@/lib/tournament";
 
 export const Route = createFileRoute("/")({
@@ -39,37 +40,41 @@ function Index() {
       <section className="relative isolate overflow-hidden">
         <img src={heroImg} alt="" width={612} height={408} fetchPriority="high" className="absolute inset-0 -z-10 h-full w-full object-cover" />
         <div className="absolute inset-0 -z-10 bg-gradient-hero" />
-        <div className="mx-auto max-w-6xl px-4 pb-16 pt-20 md:pb-28 md:pt-32">
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-accent">{t?.name ?? "eFootball Arena Kenya"}</p>
-          <h1 className="mt-4 max-w-3xl text-6xl font-extrabold uppercase leading-[0.9] md:text-8xl">
-            Your Next Match <span className="text-gradient-brand">Starts Here</span>
-          </h1>
-          <p className="mt-5 max-w-xl text-base text-muted-foreground md:text-lg">
-            {t?.description ?? "Kenya's competitive eFootball tournament platform."}
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button asChild variant="hero" size="xl">
-              <Link to="/register">
-                Register for Tournament <ArrowRight />
-              </Link>
-            </Button>
-            <div className="panel flex items-center gap-3 px-5 py-3">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Entry fee</span>
-              {isLoading ? <Skeleton className="h-7 w-24" /> : <span className="font-display text-3xl font-bold text-primary">{t ? formatKes(t.fee_kes) : "—"}</span>}
-            </div>
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-6 md:flex-row md:items-end md:justify-between md:py-9">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.35em] text-accent">{t?.name ?? "eFootball Arena Kenya"}</p>
+            <h1 className="mt-2 max-w-2xl text-3xl font-extrabold uppercase leading-[0.95] md:text-5xl">
+              Your Next Match <span className="text-gradient-brand">Starts Here</span>
+            </h1>
+            <p className="mt-2 hidden max-w-xl text-sm text-muted-foreground sm:block md:text-base">
+              {t?.description ?? "Kenya's competitive eFootball tournament platform."}
+            </p>
           </div>
-          {t && (
-            <div className="mt-6 flex flex-wrap items-center gap-2 text-sm">
-              {!t.registration_open ? (
-                <StatusBadge status="rejected" className="normal-case" />
-              ) : null}
-              <span className="text-muted-foreground">
-                {!t.registration_open ? "Registration is closed" : full ? "All slots are full — waitlist open" : `${t.total_capacity - t.verified_count} of ${t.total_capacity} slots open`}
-              </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center md:flex-col md:items-end">
+            <div className="flex items-center gap-3">
+              <div className="panel flex items-center gap-3 whitespace-nowrap px-4 py-2.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Entry fee</span>
+                {isLoading ? <Skeleton className="h-7 w-20" /> : <span className="font-display text-2xl font-bold text-primary">{t ? formatKes(t.fee_kes) : "—"}</span>}
+              </div>
+              <Button asChild variant="hero" size="lg" className="hidden md:inline-flex">
+                <Link to="/register">
+                  Register <ArrowRight />
+                </Link>
+              </Button>
             </div>
-          )}
+            {t && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                {!t.registration_open ? <StatusBadge status="rejected" className="normal-case" /> : null}
+                <span className="text-muted-foreground">
+                  {!t.registration_open ? "Registration is closed" : full ? "All slots are full — waitlist open" : `${t.total_capacity - t.verified_count} of ${t.total_capacity} slots open`}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </section>
+
+      <HomeLeague />
 
       <section className="mx-auto max-w-6xl px-4 py-16">
         <h2 className="text-4xl font-extrabold uppercase md:text-5xl">How it works</h2>
