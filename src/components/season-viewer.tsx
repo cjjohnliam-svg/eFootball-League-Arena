@@ -5,6 +5,8 @@ import { Medal, Trophy, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pill, RoundResults, StandingsTable } from "@/components/league-views";
+import { BracketView } from "@/components/bracket-view";
+import { publicBracketQuery } from "@/lib/bracket";
 import { cn } from "@/lib/utils";
 import { FORMAT_LABEL, formatKes } from "@/lib/tournament";
 import { buildRows, groupLetter, groupTable, overallTable, publicLeagueQuery, type SeasonInfo } from "@/lib/league";
@@ -61,6 +63,8 @@ export function SeasonArchive({ seasons, onOpen }: { seasons: SeasonInfo[]; onOp
 /** Full results for one season in a custom dialog: podium, final table, and round-by-round results. */
 export function SeasonResultsDialog({ season, onClose }: { season: number; onClose: () => void }) {
   const q = useQuery(publicLeagueQuery(season));
+  const bq = useQuery(publicBracketQuery(season));
+  const bracket = bq.data?.season.format === "knockout" ? bq.data : null;
   const [tab, setTab] = useState<"table" | "rounds">("table");
   const [view, setView] = useState<"overall" | number>("overall");
 
@@ -107,13 +111,17 @@ export function SeasonResultsDialog({ season, onClose }: { season: number; onClo
                         <Medal className={cn("h-7 w-7 shrink-0", w.place === 1 ? "text-primary" : "text-accent")} />
                         <div className="min-w-0">
                           <p className="truncate font-semibold">{w.gamer_tag}</p>
-                          <p className="text-xs text-muted-foreground">{w.place === 1 ? "1st" : w.place === 2 ? "2nd" : "3rd"} · {w.points} pts · {formatKes(w.prize_kes)}</p>
+                          <p className="text-xs text-muted-foreground">{w.place === 1 ? "1st" : w.place === 2 ? "2nd" : "3rd"} · {w.points > 0 ? `${w.points} pts · ` : ""}{formatKes(w.prize_kes)}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
 
+                {bracket ? (
+                  <div className={cn(winners.length > 0 && "mt-5")}><BracketView data={{ ...bracket, prize: { ...bracket.prize, winners: [] } }} /></div>
+                ) : (
+                  <>
                 <div className={cn("flex flex-wrap gap-2", winners.length > 0 && "mt-5")}>
                   <Pill active={tab === "table"} onClick={() => setTab("table")}>Final table</Pill>
                   <Pill active={tab === "rounds"} onClick={() => setTab("rounds")}>Round results</Pill>
@@ -136,6 +144,8 @@ export function SeasonResultsDialog({ season, onClose }: { season: number; onClo
                     <RoundResults key={roundsGroup} fixtures={fixtures} names={names} group={roundsGroup} single />
                   )}
                 </div>
+                  </>
+                )}
               </>
             )}
           </div>

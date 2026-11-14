@@ -11,6 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WinnersPayout } from "@/components/winners-payout";
+import { KnockoutAdmin } from "@/components/bracket-view";
+import { bracketShape } from "@/lib/bracket";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PageShell, StatusBadge } from "@/components/site";
 import { useDialogs } from "@/components/dialogs";
@@ -138,9 +141,10 @@ function Dashboard() {
     <PageShell kicker="Organiser" title="Dashboard">
       <div className="mb-4 flex justify-end"><Button variant="outline" onClick={logout}>Log out</Button></div>
       <Tabs defaultValue="dashboard">
-      <TabsList className="h-11">
-        <TabsTrigger value="dashboard" className="px-4">Dashboard</TabsTrigger>
-        <TabsTrigger value="settings" className="px-4">Tournament settings</TabsTrigger>
+      <TabsList className="h-auto flex-wrap justify-start gap-1">
+        <TabsTrigger value="dashboard" className="px-4 py-2">Dashboard</TabsTrigger>
+        <TabsTrigger value="settings" className="px-4 py-2">Tournament settings</TabsTrigger>
+        <TabsTrigger value="winners" className="px-4 py-2">Winners</TabsTrigger>
       </TabsList>
       <TabsContent value="dashboard" forceMount className="data-[state=inactive]:hidden">
       <div className="mt-4 grid gap-4 sm:grid-cols-4">
@@ -209,6 +213,10 @@ function Dashboard() {
       <TabsContent value="settings" forceMount className="data-[state=inactive]:hidden">
         <Settings onSaved={refresh} />
       </TabsContent>
+
+      <TabsContent value="winners" forceMount className="data-[state=inactive]:hidden">
+        <WinnersPayout />
+      </TabsContent>
       </Tabs>
     </PageShell>
   );
@@ -276,6 +284,7 @@ function LeagueAdmin() {
   const [group, setGroup] = useState(1);
   const [season, setSeason] = useState<number | undefined>(undefined);
   const [deadlineSeason, setDeadlineSeason] = useState<number | null>(null);
+  const [seasonFormat, setSeasonFormat] = useState<"league" | "knockout">("league");
   const ov = useQuery({
     queryKey: ["admin-league", season ?? "default"],
     queryFn: async () => {
@@ -296,7 +305,7 @@ function LeagueAdmin() {
   });
   const shotsFor = (fixtureId: string) => (shotsQ.data ?? []).filter((x) => x.fixture_id === fixtureId);
   const refresh = () => {
-    for (const k of ["admin-league", "public-league", "public-fixtures", "public-tournament", "admin-regs", "admin-shots"]) qc.invalidateQueries({ queryKey: [k] });
+    for (const k of ["admin-league", "public-league", "public-fixtures", "public-tournament", "admin-regs", "admin-shots", "public-bracket"]) qc.invalidateQueries({ queryKey: [k] });
   };
   const d = ov.data;
   const fixtures = d?.fixtures ?? [];
@@ -304,6 +313,8 @@ function LeagueAdmin() {
   const lgroups = d?.groups ?? [];
   const seasons = d?.seasons ?? [];
   const canStart = d?.can_generate ?? false;
+  const verifiedTotal = lgroups.reduce((sum, g) => sum + g.verified, 0);
+  const shapeNow = bracketShape(Math.max(verifiedTotal, 4));
   const selected = seasons.find((s) => s.number === d?.selected) ?? null;
   const locked = selected?.status === "completed";
   const deadlines = useQuery(roundDeadlinesQuery(selected?.status === "running" ? selected.number : undefined)).data;
@@ -332,6 +343,29 @@ function LeagueAdmin() {
     if (error) return toast.error(friendlyError(error));
     const r = data as unknown as { fixtures: number; season: number; next_season: number; carried: { players: number; pending: number } };
     toast.success(`Season ${r.season} started with ${r.fixtures} fixtures. Season ${r.next_season} is now open for sign-ups (${r.carried.players} players carried over).`);
+    setSeason(r.season);
+    refresh();
+  }
+  async function startKnockout() {
+    const n = lgroups.reduce((sum, g) => sum + g.verified, 0);
+    const shape = bracketShape(n);
+    const go = await dialogs.confirm({
+      title: `Start Season ${d?.registration_season} as a knockout?`,
+      description: "Players are drawn at random into the bracket. This cannot be undone. Sign-ups for the next season open automatically.",
+      details: [
+        `${n} verified players will play. Anyone not verified yet is not in this bracket; their payment moves to Season ${(d?.registration_season ?? 0) + 1}.`,
+        `Round of ${shape.size}: ${shape.firstRoundMatches} match${shape.firstRoundMatches === 1 ? "" : "es"} to play${shape.byes > 0 ? `, ${shape.byes} player${shape.byes === 1 ? " gets" : "s get"} a bye into the next round` : ""}.`,
+        "Semi-final losers play a 3rd-place match. The season ends by itself after the final and the 3rd-place match.",
+      ],
+      confirmLabel: "Start knockout",
+      tone: "success",
+    });
+    if (!go) return;
+    const { data, error } = await supabase.rpc("admin_generate_knockout");
+    if (error) return toast.error(friendlyError(error));
+    const r = data as unknown as { season: number; next_season: number; players: number; bracket_size: number; byes: number };
+    toast.success(`Season ${r.season} knockout started: ${r.players} players, bracket of ${r.bracket_size}. Season ${r.next_season} is now open for sign-ups.`);
+    setSeasonFormat("league");
     setSeason(r.season);
     refresh();
   }
@@ -376,8 +410,38 @@ function LeagueAdmin() {
       <div className="panel mt-5 p-5">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="text-2xl font-bold uppercase">Season {d?.registration_season ?? "—"} <span className="text-sm font-normal text-muted-foreground">sign-ups open</span></h3>
-          <Button variant="hero" onClick={startLeague} disabled={!canStart}>{canStart ? "Start league with ready groups" : "Waiting for a full group"}</Button>
+          {seasonFormat === "league" ? (
+            <Button variant="hero" onClick={startLeague} disabled={!canStart}>{canStart ? "Start league with ready groups" : "Waiting for a full group"}</Button>
+          ) : (
+            <Button variant="hero" onClick={startKnockout} disabled={verifiedTotal < 4}>{verifiedTotal < 4 ? "Needs at least 4 verified players" : `Start knockout with ${verifiedTotal} players`}</Button>
+          )}
         </div>
+        <div role="radiogroup" aria-label="Season format" className="mt-4 grid gap-3 sm:grid-cols-2">
+          {([
+            ["league", "Groups league", "Players are placed in groups and everyone plays everyone. The table decides the winners."],
+            ["knockout", "Knockout", "Random draw into a bracket. Lose once and you are out. Final plus a 3rd-place match."],
+          ] as const).map(([value, title, text]) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={seasonFormat === value}
+              onClick={() => setSeasonFormat(value)}
+              className={"rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " + (seasonFormat === value ? "border-primary bg-primary/10" : "border-border hover:border-muted-foreground")}
+            >
+              <span className="flex items-center gap-2 font-display text-lg font-bold uppercase">
+                <span className={"grid h-4 w-4 place-items-center rounded-full border " + (seasonFormat === value ? "border-primary" : "border-muted-foreground")}>{seasonFormat === value && <span className="h-2 w-2 rounded-full bg-primary" />}</span>
+                {title}
+              </span>
+              <span className="mt-1 block text-sm text-muted-foreground">{text}</span>
+            </button>
+          ))}
+        </div>
+        {seasonFormat === "knockout" && verifiedTotal >= 4 && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            {verifiedTotal} verified players: bracket of {shapeNow.size}, {shapeNow.firstRoundMatches} first-round match{shapeNow.firstRoundMatches === 1 ? "" : "es"}{shapeNow.byes > 0 ? `, ${shapeNow.byes} bye${shapeNow.byes === 1 ? "" : "s"}` : ""}. Knockout ignores group sizes, so every verified player takes part.
+          </p>
+        )}
         {lgroups.length === 0 && <p className="mt-3 text-sm text-muted-foreground">No players verified in this season yet.</p>}
         {lgroups.length > 0 && (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -399,6 +463,8 @@ function LeagueAdmin() {
           </div>
         )}
       </div>
+
+      <KnockoutAdmin />
 
       {seasons.length > 0 && (
         <div className="mt-5 space-y-3">

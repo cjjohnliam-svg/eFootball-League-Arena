@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Pill } from "@/components/league-views";
+import { BracketView } from "@/components/bracket-view";
+import { publicBracketQuery } from "@/lib/bracket";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { buildRows, groupLetter, groupTable, overallTable, publicLeagueQuery, useLiveFixtures, type Fixture, type TableRow } from "@/lib/league";
@@ -20,6 +22,8 @@ const initials = (s: string) => s.replace(/[^A-Za-z0-9 ]/g, " ").trim().split(/\
 export function HomeLeague() {
   useLiveFixtures();
   const { data, isLoading, error } = useQuery(publicLeagueQuery());
+  const bracketQ = useQuery(publicBracketQuery());
+  const bracket = bracketQ.data?.season.format === "knockout" ? bracketQ.data : null;
   const [tab, setTab] = useState<Tab>("standings");
   const [view, setView] = useState<"overall" | number>("overall");
 
@@ -41,6 +45,23 @@ export function HomeLeague() {
 
   const status = data?.season.status;
   const badge = !data ? null : status === "running" ? "Live" : status === "completed" ? "Final table" : "Sign-ups open";
+
+  if (bracket) {
+    return (
+      <section className="mx-auto max-w-6xl px-4 pt-6 md:pt-8">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-accent">Season {bracket.season.number} · Knockout</p>
+            <h2 className="text-2xl font-extrabold uppercase md:text-4xl">Bracket &amp; results</h2>
+          </div>
+          <Link to="/league" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+            Full league <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="panel p-3 sm:p-4"><BracketView data={bracket} /></div>
+      </section>
+    );
+  }
 
   return (
     <section className="mx-auto max-w-6xl px-4 pt-6 md:pt-8">

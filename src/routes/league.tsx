@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Medal, Radio } from "lucide-react";
 import { Pill, RoundResults, StandingsTable } from "@/components/league-views";
+import { BracketView } from "@/components/bracket-view";
+import { publicBracketQuery } from "@/lib/bracket";
 import { SeasonArchive, SeasonResultsDialog } from "@/components/season-viewer";
 import { MyMatches } from "@/components/my-matches";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +50,8 @@ function LeaguePage() {
   const [archiveSeason, setArchiveSeason] = useState<number | null>(null);
 
   const data = resolving ? null : (lg.data ?? null);
+  const bracketQ = useQuery({ ...publicBracketQuery(data?.season.number), enabled: !!data });
+  const bracket = bracketQ.data?.season.format === "knockout" ? bracketQ.data : null;
   const liveSeasons = (data?.seasons ?? []).filter((s) => s.status !== "completed");
   const deadlines = useQuery(roundDeadlinesQuery(data && data.season.status === "running" ? data.season.number : undefined)).data;
   const groups = data?.groups ?? [];
@@ -76,14 +80,19 @@ function LeaguePage() {
           : signingUp ? <span className="rounded-full border border-primary/40 px-3 py-1 text-xs font-bold uppercase text-primary">Sign-ups open</span>
           : <span className="inline-flex items-center gap-2 text-primary"><Radio className="h-4 w-4 animate-pulse" /> Live</span>}
         {fixtures.length > 0 && <span>{played} of {fixtures.length} matches played</span>}
+        {bracket && <span className="rounded-full border border-border px-3 py-1 text-xs font-bold uppercase">Knockout</span>}
       </div>
 
-      {data && data.season.status !== "completed" && <MyMatches seasonNumber={data.season.number} deadlines={deadlines} />}
+      {data && !bracket && data.season.status !== "completed" && <MyMatches seasonNumber={data.season.number} deadlines={deadlines} />}
 
       {data && <Prizes prize={data.prize} final={done || completed} completed={completed} />}
 
       {lg.error && <p className="mt-6 text-destructive">Couldn't load the league. Please refresh.</p>}
 
+      {bracket ? (
+        <div className="mt-8"><BracketView data={bracket} /></div>
+      ) : (
+        <>
       <div className="mt-8 flex flex-wrap gap-2">
         <Pill active={tab === "table"} onClick={() => setTab("table")}>Table</Pill>
         <Pill active={tab === "fixtures"} onClick={() => setTab("fixtures")}>Fixtures</Pill>
@@ -114,6 +123,9 @@ function LeaguePage() {
         Win = 3 points, draw = 1. A match where neither player showed is recorded 0-0 with no points for either player. Ranked by points, goal difference, then goals scored. Only organiser-confirmed results count;
         disputed matches are held back until resolved. {tab === "fixtures" && view === "overall" && "Pick a group above to see its fixtures."}
       </p>
+
+        </>
+      )}
 
       <SeasonArchive seasons={data?.seasons ?? []} onOpen={setArchiveSeason} />
       {archiveSeason !== null && <SeasonResultsDialog key={archiveSeason} season={archiveSeason} onClose={() => setArchiveSeason(null)} />}

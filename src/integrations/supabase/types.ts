@@ -380,6 +380,9 @@ export type Database = {
       verified_total: { Args: never; Returns: number }
       prize_breakdown: { Args: { _season?: string }; Returns: Json }
       get_public_league: { Args: { _season?: number }; Returns: Json }
+      get_public_bracket: { Args: { _season?: number }; Returns: Json }
+      admin_generate_knockout: { Args: never; Returns: Json }
+      admin_record_knockout_result: { Args: { _match: string; _score_a: number; _score_b: number; _winner?: string }; Returns: Json }
       admin_end_season: { Args: { _season: number }; Returns: Json }
       admin_create_trial_codes: { Args: { _count: number; _hours: number; _label: string; _max_uses?: number }; Returns: Json }
       admin_list_trial_codes: { Args: never; Returns: Json }
