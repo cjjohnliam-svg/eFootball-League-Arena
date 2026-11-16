@@ -69,6 +69,7 @@ function Dashboard() {
   const [filter, setFilter] = useState("");
   const regs = useQuery({
     queryKey: ["admin-regs"],
+    refetchInterval: 15000,
     queryFn: async () => {
       const { data, error } = await supabase.from("registrations").select("*, seasons(number, status), tournament_groups(group_number), payment_submissions(method, transaction_code, amount_kes, expected_fee_kes, screenshot_path, payer_phone), verification_audit(decision, reason, created_at)").order("created_at", { ascending: false });
       if (error) throw error;
@@ -138,19 +139,21 @@ function Dashboard() {
   })();
 
   return (
-    <PageShell kicker="Organiser" title="Dashboard">
+    <PageShell kicker="Organiser" title="Admin control centre">
       <div className="mb-4 flex justify-end"><Button variant="outline" onClick={logout}>Log out</Button></div>
-      <Tabs defaultValue="dashboard">
-      <TabsList className="h-auto flex-wrap justify-start gap-1">
-        <TabsTrigger value="dashboard" className="px-4 py-2">Dashboard</TabsTrigger>
-        <TabsTrigger value="settings" className="px-4 py-2">Tournament settings</TabsTrigger>
-        <TabsTrigger value="winners" className="px-4 py-2">Winners</TabsTrigger>
+      <Tabs defaultValue="tournament">
+      <TabsList className="sticky top-16 z-30 h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-border bg-background/95 p-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <TabsTrigger value="tournament" className="px-4 py-2">Live tournament</TabsTrigger>
+        <TabsTrigger value="registrations" className="px-4 py-2">Registrations &amp; Payments{pending.length > 0 && <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-bold leading-none text-white shadow-sm">{pending.length}</span>}</TabsTrigger>
+        <TabsTrigger value="players" className="px-4 py-2">Players &amp; Records</TabsTrigger>
+        <TabsTrigger value="settings" className="px-4 py-2">Settings</TabsTrigger>
+        <TabsTrigger value="winners" className="px-4 py-2">Winners &amp; Payouts</TabsTrigger>
       </TabsList>
-      <TabsContent value="dashboard" forceMount className="data-[state=inactive]:hidden">
-      <div className="mt-4 grid gap-4 sm:grid-cols-4">
-        <Card l="Verified" v={String(verified.length)} /><Card l="Pending payments" v={String(pending.length)} />
-        <Card l="Verified collections" v={formatKes(collected)} /><OpenSlots verified={verified.length} />
-      </div>
+      <TabsContent value="tournament" forceMount className="data-[state=inactive]:hidden">
+        <LeagueAdmin />
+      </TabsContent>
+      <TabsContent value="registrations" forceMount className="data-[state=inactive]:hidden">
+
 
       <h2 className="mt-10 text-3xl font-bold uppercase">Pending queue</h2>
       {pending.length === 0 && <p className="mt-2 text-muted-foreground">No payments awaiting verification.</p>}
@@ -172,6 +175,16 @@ function Dashboard() {
       </div>
 
       <FreeTrialAdmin />
+
+
+
+      </TabsContent>
+
+      <TabsContent value="players" forceMount className="data-[state=inactive]:hidden">
+      <div className="mt-4 grid gap-4 sm:grid-cols-4">
+        <Card l="Verified" v={String(verified.length)} /><Card l="Pending payments" v={String(pending.length)} />
+        <Card l="Verified collections" v={formatKes(collected)} /><OpenSlots verified={verified.length} />
+      </div>
 
       <div className="mt-10 flex flex-wrap items-center gap-3">
         <h2 className="text-3xl font-bold uppercase">All registrations</h2>
@@ -206,8 +219,6 @@ function Dashboard() {
           );
         })}
       </div>
-
-      <LeagueAdmin />
       </TabsContent>
 
       <TabsContent value="settings" forceMount className="data-[state=inactive]:hidden">
@@ -407,6 +418,43 @@ function LeagueAdmin() {
         A season is one league. When the groups that are ready are full, start the league; players who are not in a full group, and any pending payments, move to the next season automatically, and its sign-ups open straight away.
       </p>
 
+      {disputes.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <h3 className="text-xl font-bold uppercase text-destructive">Open disputes ({disputes.length})</h3>
+          {disputes.map((x) => <DisputeCard key={x.id} d={x} onResolve={resolve} shots={shotsFor(x.fixture_id)} />)}
+        </div>
+      )}
+
+      {ov.error && <p className="mt-4 text-destructive">Couldn't load the league.</p>}
+      {fixtures.length === 0 && !ov.isLoading && seasons.length === 0 && <p className="mt-4 text-muted-foreground">No fixtures yet. They are created when you start the league.</p>}
+      {groupNums.length > 0 && (
+        <>
+          <h3 className="mt-8 text-2xl font-bold uppercase">Season {d?.selected} fixtures {locked && <span className="text-sm font-normal text-muted-foreground">· ended, results locked</span>}</h3>
+          {overdue > 0 && <p className="mt-1 text-sm font-semibold text-destructive">{overdue} {overdue === 1 ? "match is" : "matches are"} overdue. Use Forfeit to give the walkover to the player who showed up, or No-show if neither played.</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {groupNums.map((g) => <Button key={g} size="sm" variant={g === activeGroup ? "hero" : "outline"} onClick={() => setGroup(g)}>Group {letter(g)}</Button>)}
+          </div>
+          <div className="mt-4 space-y-4">
+            {[...new Set(shown.map((f) => f.round))].sort((x, y) => x - y).map((round) => {
+              const list = shown.filter((f) => f.round === round);
+              const done = list.filter((f) => f.status === "confirmed").length;
+              return (
+                <div key={round} className={"panel overflow-hidden " + (round % 2 === 0 ? "bg-primary/[0.04]" : "bg-card")}>
+                  <div className={"flex items-center justify-between border-b border-border px-4 py-2 " + (round % 2 === 0 ? "bg-accent/15" : "bg-primary/15")}>
+                    <h3 className="font-display text-lg font-bold uppercase tracking-wide">Round {round}</h3>
+                    <span className="text-xs text-muted-foreground">{done} of {list.length} played</span>
+                  </div>
+                  <div className="divide-y divide-border/60">
+                    {list.map((f) => <ResultRow key={f.id + f.status + f.home_score + f.away_score + f.result_type} f={f} locked={locked} onSave={record} shots={shotsFor(f.id)} due={dueOf(f.round)} />)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+      {deadlineSeason !== null && <DeadlinesDialog key={deadlineSeason} season={deadlineSeason} rounds={selected?.number === deadlineSeason ? Math.max(0, ...fixtures.map((x) => x.round)) : 0} onClose={() => setDeadlineSeason(null)} onSaved={refresh} />}
+
       <div className="panel mt-5 p-5">
         <div className="flex flex-wrap items-center gap-3">
           <h3 className="text-2xl font-bold uppercase">Season {d?.registration_season ?? "—"} <span className="text-sm font-normal text-muted-foreground">sign-ups open</span></h3>
@@ -490,42 +538,6 @@ function LeagueAdmin() {
         </div>
       )}
 
-      {disputes.length > 0 && (
-        <div className="mt-6 space-y-3">
-          <h3 className="text-xl font-bold uppercase text-destructive">Open disputes ({disputes.length})</h3>
-          {disputes.map((x) => <DisputeCard key={x.id} d={x} onResolve={resolve} shots={shotsFor(x.fixture_id)} />)}
-        </div>
-      )}
-
-      {ov.error && <p className="mt-4 text-destructive">Couldn't load the league.</p>}
-      {fixtures.length === 0 && !ov.isLoading && seasons.length === 0 && <p className="mt-4 text-muted-foreground">No fixtures yet. They are created when you start the league.</p>}
-      {groupNums.length > 0 && (
-        <>
-          <h3 className="mt-8 text-2xl font-bold uppercase">Season {d?.selected} fixtures {locked && <span className="text-sm font-normal text-muted-foreground">· ended, results locked</span>}</h3>
-          {overdue > 0 && <p className="mt-1 text-sm font-semibold text-destructive">{overdue} {overdue === 1 ? "match is" : "matches are"} overdue. Use Forfeit to give the walkover to the player who showed up, or No-show if neither played.</p>}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {groupNums.map((g) => <Button key={g} size="sm" variant={g === activeGroup ? "hero" : "outline"} onClick={() => setGroup(g)}>Group {letter(g)}</Button>)}
-          </div>
-          <div className="mt-4 space-y-4">
-            {[...new Set(shown.map((f) => f.round))].sort((x, y) => x - y).map((round) => {
-              const list = shown.filter((f) => f.round === round);
-              const done = list.filter((f) => f.status === "confirmed").length;
-              return (
-                <div key={round} className={"panel overflow-hidden " + (round % 2 === 0 ? "bg-primary/[0.04]" : "bg-card")}>
-                  <div className={"flex items-center justify-between border-b border-border px-4 py-2 " + (round % 2 === 0 ? "bg-accent/15" : "bg-primary/15")}>
-                    <h3 className="font-display text-lg font-bold uppercase tracking-wide">Round {round}</h3>
-                    <span className="text-xs text-muted-foreground">{done} of {list.length} played</span>
-                  </div>
-                  <div className="divide-y divide-border/60">
-                    {list.map((f) => <ResultRow key={f.id + f.status + f.home_score + f.away_score + f.result_type} f={f} locked={locked} onSave={record} shots={shotsFor(f.id)} due={dueOf(f.round)} />)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
-      )}
-      {deadlineSeason !== null && <DeadlinesDialog key={deadlineSeason} season={deadlineSeason} rounds={selected?.number === deadlineSeason ? Math.max(0, ...fixtures.map((x) => x.round)) : 0} onClose={() => setDeadlineSeason(null)} onSaved={refresh} />}
     </section>
   );
 }
