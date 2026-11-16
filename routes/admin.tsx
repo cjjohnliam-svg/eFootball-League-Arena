@@ -69,6 +69,7 @@ function Dashboard() {
   const [filter, setFilter] = useState("");
   const regs = useQuery({
     queryKey: ["admin-regs"],
+    refetchInterval: 15000,
     queryFn: async () => {
       const { data, error } = await supabase.from("registrations").select("*, seasons(number, status), tournament_groups(group_number), payment_submissions(method, transaction_code, amount_kes, expected_fee_kes, screenshot_path, payer_phone), verification_audit(decision, reason, created_at)").order("created_at", { ascending: false });
       if (error) throw error;
@@ -143,18 +144,16 @@ function Dashboard() {
       <Tabs defaultValue="tournament">
       <TabsList className="sticky top-16 z-30 h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-border bg-background/95 p-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <TabsTrigger value="tournament" className="px-4 py-2">Live tournament</TabsTrigger>
-        <TabsTrigger value="dashboard" className="px-4 py-2">Payments &amp; Players</TabsTrigger>
+        <TabsTrigger value="registrations" className="px-4 py-2">Registrations &amp; Payments{pending.length > 0 && <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-bold leading-none text-white shadow-sm">{pending.length}</span>}</TabsTrigger>
+        <TabsTrigger value="players" className="px-4 py-2">Players &amp; Records</TabsTrigger>
         <TabsTrigger value="settings" className="px-4 py-2">Settings</TabsTrigger>
         <TabsTrigger value="winners" className="px-4 py-2">Winners &amp; Payouts</TabsTrigger>
       </TabsList>
       <TabsContent value="tournament" forceMount className="data-[state=inactive]:hidden">
         <LeagueAdmin />
       </TabsContent>
-      <TabsContent value="dashboard" forceMount className="data-[state=inactive]:hidden">
-      <div className="mt-4 grid gap-4 sm:grid-cols-4">
-        <Card l="Verified" v={String(verified.length)} /><Card l="Pending payments" v={String(pending.length)} />
-        <Card l="Verified collections" v={formatKes(collected)} /><OpenSlots verified={verified.length} />
-      </div>
+      <TabsContent value="registrations" forceMount className="data-[state=inactive]:hidden">
+
 
       <h2 className="mt-10 text-3xl font-bold uppercase">Pending queue</h2>
       {pending.length === 0 && <p className="mt-2 text-muted-foreground">No payments awaiting verification.</p>}
@@ -176,6 +175,16 @@ function Dashboard() {
       </div>
 
       <FreeTrialAdmin />
+
+
+
+      </TabsContent>
+
+      <TabsContent value="players" forceMount className="data-[state=inactive]:hidden">
+      <div className="mt-4 grid gap-4 sm:grid-cols-4">
+        <Card l="Verified" v={String(verified.length)} /><Card l="Pending payments" v={String(pending.length)} />
+        <Card l="Verified collections" v={formatKes(collected)} /><OpenSlots verified={verified.length} />
+      </div>
 
       <div className="mt-10 flex flex-wrap items-center gap-3">
         <h2 className="text-3xl font-bold uppercase">All registrations</h2>
@@ -210,7 +219,6 @@ function Dashboard() {
           );
         })}
       </div>
-
       </TabsContent>
 
       <TabsContent value="settings" forceMount className="data-[state=inactive]:hidden">
