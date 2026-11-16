@@ -141,7 +141,7 @@ function Dashboard() {
     <PageShell kicker="Organiser" title="Admin control centre">
       <div className="mb-4 flex justify-end"><Button variant="outline" onClick={logout}>Log out</Button></div>
       <Tabs defaultValue="tournament">
-      <TabsList className="sticky top-0 z-30 h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-border bg-background/95 p-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <TabsList className="sticky top-16 z-30 h-auto w-full flex-wrap justify-start gap-1 rounded-xl border border-border bg-background/95 p-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <TabsTrigger value="tournament" className="px-4 py-2">Live tournament</TabsTrigger>
         <TabsTrigger value="dashboard" className="px-4 py-2">Payments &amp; Players</TabsTrigger>
         <TabsTrigger value="settings" className="px-4 py-2">Settings</TabsTrigger>
